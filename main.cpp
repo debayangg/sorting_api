@@ -39,6 +39,7 @@ void handleClient(int clientSocket) {
     if (valread > 0) {
         // Parse JSON array from request
         std::string requestBody(buffer);
+        std::cout << requestBody<< std::endl;
         std::vector<int> array;
         size_t pos = requestBody.find("[");
         size_t endpos = requestBody.find("]");
