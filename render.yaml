@@ -3,4 +3,4 @@ services:
     name: cpp-sort-service
     dockerfile: Dockerfile
     env: docker
-    port: 10000
+    port: 8080
