@@ -1,8 +1,6 @@
 services:
   - type: web
     name: cpp-sort-service
+    dockerfile: Dockerfile
     env: docker
-    plan: free
-    buildCommand: ""
-    startCommand: "./app"
     port: 10000

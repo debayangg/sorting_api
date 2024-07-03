@@ -1,33 +1,23 @@
-# Use an official Ubuntu image
-FROM ubuntu:latest as builder
-
-# Set the working directory
-WORKDIR /usr/src/app
-
-# Install GCC and other dependencies
-RUN apt-get update && apt-get install -y \
-    g++ \
-    cmake \
-    libboost-all-dev \
-    libssl-dev
-
-# Copy the current directory contents into the container at /usr/src/app
-COPY . .
-
-# Compile the C++ code
-RUN g++ -std=c++11 main.cpp -o app
-
-# Use a minimal image for the final container
+# Use an official Ubuntu image as base
 FROM ubuntu:latest
 
+# Install necessary dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libmicrohttpd-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 # Set the working directory
-WORKDIR /root/
+WORKDIR /app
 
-# Copy the compiled binary from the builder stage
-COPY --from=builder /usr/src/app/app .
+# Copy the C++ source code
+COPY main.cpp .
 
-# Expose port 8080 (optional if you want to expose a specific port)
+# Compile the C++ code
+RUN g++ -std=c++11 -o web_service main.cpp -lmicrohttpd
+
+# Expose port 8080 (or the port your application listens on)
 EXPOSE 10000
 
-# Run the binary
-CMD ["./app"]
+# Command to run the server
+CMD ["./web_service"]
