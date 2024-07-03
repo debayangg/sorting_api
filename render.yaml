@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: cpp-sort-service
+    name: c-sort-service
     dockerfile: Dockerfile
     env: docker
     port: 8080

@@ -1,31 +1,17 @@
-FROM ubuntu:20.04
+# Use a base image with a C development environment
+FROM gcc:latest
 
-# Set the environment variable to avoid timezone prompt
-ENV DEBIAN_FRONTEND=noninteractive
+# Set the working directory inside the container
+WORKDIR /app
 
-# Install necessary packages
-RUN apt-get update && apt-get install -y \
-    g++ \
-    cmake \
-    libboost-all-dev \
-    wget \
-    unzip \
-    && rm -rf /var/lib/apt/lists/*
+# Copy the server C source code into the container
+COPY server.c /app/server.c
 
-# Install nlohmann json library
-RUN wget https://github.com/nlohmann/json/releases/download/v3.10.5/json.hpp -P /usr/include/nlohmann/
+# Compile the server C code
+RUN gcc -o server server.c
 
-# Copy source files
-COPY main.cpp /usr/src/myapp/
-
-# Compile the application
-RUN g++ -o /usr/src/myapp/web_service /usr/src/myapp/main.cpp -lboost_system -lpthread
-
-# Set the working directory
-WORKDIR /usr/src/myapp
-
-# Expose port
+# Expose port 8080 to the outside world
 EXPOSE 8080
 
-# Run the application
-CMD ["./web_service"]
+# Command to run the server when the container starts
+CMD ["./server"]
