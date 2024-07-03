@@ -29,36 +29,37 @@ void handleClient(boost::asio::ip::tcp::socket& socket) {
     if (!error) {
         std::istream requestStream(&buffer);
         std::string requestBody;
-        std::getline(requestStream, requestBody);
         std::string line;
         while (std::getline(requestStream, line) && line != "\r") {
-            requestBody += line;
+            requestBody += line + "\n";
         }
 
-        // Parse JSON array from request
-        std::vector<int> array;
-        size_t pos = requestBody.find("input:[");
-        size_t endpos = requestBody.find("]", pos);
-        if (pos != std::string::npos && endpos != std::string::npos) {
-            std::string jsonArray = requestBody.substr(pos + 7, endpos - pos - 7);
-            nlohmann::json json = nlohmann::json::parse("[" + jsonArray + "]");
-            for (const auto& num : json) {
-                array.push_back(num.get<int>());
-            }
+        // Find the form data
+        size_t inputPos = requestBody.find("input=");
+        if (inputPos != std::string::npos) {
+            std::string jsonArray = requestBody.substr(inputPos + 6); // Skip "input="
+            jsonArray = jsonArray.substr(1, jsonArray.size() - 2); // Remove enclosing quotes
+
+            // Parse JSON array
+            nlohmann::json json = nlohmann::json::parse(jsonArray);
+            std::vector<int> array = json.get<std::vector<int>>();
+
+            // Sort the array
+            std::string sortedArray = sortJsonArray(array);
+
+            // Prepare response
+            std::ostringstream response;
+            response << "HTTP/1.1 200 OK\r\n";
+            response << "Content-Type: application/json\r\n";
+            response << "Content-Length: " << sortedArray.size() << "\r\n\r\n";
+            response << sortedArray;
+
+            // Send response to client
+            boost::asio::write(socket, boost::asio::buffer(response.str()), error);
+        } else {
+            std::string response = "HTTP/1.1 400 Bad Request\r\n\r\n";
+            boost::asio::write(socket, boost::asio::buffer(response), error);
         }
-
-        // Sort the array
-        std::string sortedArray = sortJsonArray(array);
-
-        // Prepare response
-        std::ostringstream response;
-        response << "HTTP/1.1 200 OK\r\n";
-        response << "Content-Type: application/json\r\n";
-        response << "Content-Length: " << sortedArray.size() << "\r\n\r\n";
-        response << sortedArray;
-
-        // Send response to client
-        boost::asio::write(socket, boost::asio::buffer(response.str()), error);
     } else {
         std::string response = "HTTP/1.1 400 Bad Request\r\n\r\n";
         boost::asio::write(socket, boost::asio::buffer(response), error);
