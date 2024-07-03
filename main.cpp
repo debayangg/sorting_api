@@ -3,7 +3,7 @@
 #include <vector>
 #include <algorithm>
 #include <sstream>
-#include <stdexcept>
+#include <thread>
 #include <boost/asio.hpp>
 #include <nlohmann/json.hpp>
 
@@ -15,54 +15,57 @@ std::string sortJsonArray(const std::vector<int>& array) {
 
     // Convert sorted array to JSON string
     nlohmann::json sortedJson = sortedArray;
-
     return sortedJson.dump();
 }
 
 // Function to handle incoming connections
-void handleClient(boost::asio::ip::tcp::socket& socket) {
-    boost::asio::streambuf buffer;
-    boost::system::error_code error;
+void handleClient(boost::asio::ip::tcp::socket socket) {
+    try {
+        boost::asio::streambuf buffer;
+        boost::system::error_code error;
 
-    // Read request from client
-    boost::asio::read_until(socket, buffer, "\r\n\r\n", error);
-    if (!error) {
-        std::istream requestStream(&buffer);
-        std::string requestBody;
-        std::string line;
-        while (std::getline(requestStream, line) && line != "\r") {
-            requestBody += line + "\n";
-        }
+        // Read request from client
+        boost::asio::read_until(socket, buffer, "\r\n\r\n", error);
+        if (!error) {
+            std::istream requestStream(&buffer);
+            std::string requestBody;
+            std::string line;
+            while (std::getline(requestStream, line) && line != "\r") {
+                requestBody += line + "\n";
+            }
 
-        // Find the form data
-        size_t inputPos = requestBody.find("input=");
-        if (inputPos != std::string::npos) {
-            std::string jsonArray = requestBody.substr(inputPos + 6); // Skip "input="
-            jsonArray = jsonArray.substr(1, jsonArray.size() - 2); // Remove enclosing quotes
+            // Find the form data
+            size_t inputPos = requestBody.find("input=");
+            if (inputPos != std::string::npos) {
+                std::string jsonArray = requestBody.substr(inputPos + 6); // Skip "input="
+                jsonArray = jsonArray.substr(1, jsonArray.size() - 2); // Remove enclosing quotes
 
-            // Parse JSON array
-            nlohmann::json json = nlohmann::json::parse(jsonArray);
-            std::vector<int> array = json.get<std::vector<int>>();
+                // Parse JSON array
+                nlohmann::json json = nlohmann::json::parse(jsonArray);
+                std::vector<int> array = json.get<std::vector<int>>();
 
-            // Sort the array
-            std::string sortedArray = sortJsonArray(array);
+                // Sort the array
+                std::string sortedArray = sortJsonArray(array);
 
-            // Prepare response
-            std::ostringstream response;
-            response << "HTTP/1.1 200 OK\r\n";
-            response << "Content-Type: application/json\r\n";
-            response << "Content-Length: " << sortedArray.size() << "\r\n\r\n";
-            response << sortedArray;
+                // Prepare response
+                std::ostringstream response;
+                response << "HTTP/1.1 200 OK\r\n";
+                response << "Content-Type: application/json\r\n";
+                response << "Content-Length: " << sortedArray.size() << "\r\n\r\n";
+                response << sortedArray;
 
-            // Send response to client
-            boost::asio::write(socket, boost::asio::buffer(response.str()), error);
+                // Send response to client
+                boost::asio::write(socket, boost::asio::buffer(response.str()), error);
+            } else {
+                std::string response = "HTTP/1.1 400 Bad Request\r\n\r\n";
+                boost::asio::write(socket, boost::asio::buffer(response), error);
+            }
         } else {
             std::string response = "HTTP/1.1 400 Bad Request\r\n\r\n";
             boost::asio::write(socket, boost::asio::buffer(response), error);
         }
-    } else {
-        std::string response = "HTTP/1.1 400 Bad Request\r\n\r\n";
-        boost::asio::write(socket, boost::asio::buffer(response), error);
+    } catch (std::exception& e) {
+        std::cerr << "Exception: " << e.what() << std::endl;
     }
     socket.close();
 }
@@ -77,7 +80,7 @@ int main() {
         while (true) {
             boost::asio::ip::tcp::socket socket(ioContext);
             acceptor.accept(socket);
-            handleClient(socket);
+            std::thread(handleClient, std::move(socket)).detach();
         }
     } catch (std::exception& e) {
         std::cerr << "Exception: " << e.what() << std::endl;
