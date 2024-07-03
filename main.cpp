@@ -33,10 +33,10 @@ std::string sortJsonArray(const std::string& input) {
 }
 
 // Request handler function
-static int requestHandler(void* cls, struct MHD_Connection* connection,
-                          const char* url, const char* method,
-                          const char* version, const char* upload_data,
-                          size_t* upload_data_size, void** con_cls) {
+int requestHandler(void* cls, struct MHD_Connection* connection,
+                   const char* url, const char* method,
+                   const char* version, const char* upload_data,
+                   size_t* upload_data_size, void** con_cls) {
     // Only handle POST requests
     if (strcmp(method, "POST") != 0)
         return MHD_NO; // Method Not Allowed
