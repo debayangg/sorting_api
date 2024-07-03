@@ -90,3 +90,22 @@ void handleClient(tcp::socket socket) {
     }
     socket.close();
 }
+
+int main() {
+    try {
+        boost::asio::io_context ioContext;
+        boost::asio::ip::tcp::acceptor acceptor(ioContext, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), 8080));
+
+        std::cout << "Server listening on port 8080..." << std::endl;
+
+        while (true) {
+            boost::asio::ip::tcp::socket socket(ioContext);
+            acceptor.accept(socket);
+            std::thread(handleClient, std::move(socket)).detach();
+        }
+    } catch (std::exception& e) {
+        std::cerr << "Exception: " << e.what() << std::endl;
+    }
+
+    return 0;
+}
