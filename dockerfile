@@ -5,10 +5,10 @@ FROM gcc:latest
 WORKDIR /app
 
 # Copy the server C source code into the container
-COPY server.c /app/server.c
+COPY main.c /app/main.c
 
 # Compile the server C code
-RUN gcc -o server server.c
+RUN gcc -o server main.c
 
 # Expose port 8080 to the outside world
 EXPOSE 8080
