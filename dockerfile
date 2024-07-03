@@ -1,14 +1,15 @@
 # Use an official GCC image to compile the C++ code
 FROM gcc:latest as builder
 
+# Set the working directory
+WORKDIR /usr/src/app
+
 # Install dependencies
 RUN apt-get update && apt-get install -y \
+    git \
     cmake \
     libboost-all-dev \
     libssl-dev
-
-# Set the working directory
-WORKDIR /usr/src/app
 
 # Copy the current directory contents into the container at /usr/src/app
 COPY . .
