@@ -1,17 +1,24 @@
-# Use an official GCC image to compile the C++ code
-FROM gcc:latest as builder
+# Use an official Ubuntu image
+FROM ubuntu:latest as builder
 
 # Set the working directory
 WORKDIR /usr/src/app
 
+# Install GCC and other dependencies
+RUN apt-get update && apt-get install -y \
+    g++ \
+    cmake \
+    libboost-all-dev \
+    libssl-dev
+
 # Copy the current directory contents into the container at /usr/src/app
 COPY . .
 
-# Compile the C++ code with static linking
-RUN g++ -std=c++11 -static-libstdc++ main.cpp -o app
+# Compile the C++ code
+RUN g++ -std=c++11 main.cpp -o app
 
 # Use a minimal image for the final container
-FROM debian:latest
+FROM ubuntu:latest
 
 # Set the working directory
 WORKDIR /root/
