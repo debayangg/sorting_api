@@ -33,7 +33,7 @@ void handleClient(boost::asio::ip::tcp::socket socket) {
             while (std::getline(requestStream, line) && line != "\r") {
                 requestBody += line + "\n";
             }
-
+            cout<<requestBody<<endl;
             // Find the form data
             size_t inputPos = requestBody.find("input=");
             if (inputPos != std::string::npos) {
