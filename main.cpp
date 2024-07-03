@@ -3,9 +3,11 @@
 #include <vector>
 #include <algorithm>
 #include <sstream>
-#include <thread>
 #include <boost/asio.hpp>
 #include <nlohmann/json.hpp>
+
+using namespace boost::asio;
+using ip::tcp;
 
 // Function to sort JSON array input
 std::string sortJsonArray(const std::vector<int>& array) {
@@ -19,22 +21,41 @@ std::string sortJsonArray(const std::vector<int>& array) {
 }
 
 // Function to handle incoming connections
-void handleClient(boost::asio::ip::tcp::socket socket) {
+void handleClient(tcp::socket socket) {
     try {
-        boost::asio::streambuf buffer;
         boost::system::error_code error;
 
-        // Read request from client
+        // Read request headers
+        boost::asio::streambuf buffer;
         boost::asio::read_until(socket, buffer, "\r\n\r\n", error);
+
         if (!error) {
+            // Log headers
             std::istream requestStream(&buffer);
-            std::string requestBody;
-            std::string line;
-            while (std::getline(requestStream, line) && line != "\r") {
-                requestBody += line + "\n";
+            std::string header;
+            std::cout << "Request Headers:" << std::endl;
+            while (std::getline(requestStream, header) && header != "\r") {
+                std::cout << header << std::endl;
             }
-            std::cout<<requestBody<<std::endl;
-            // Find the form data
+
+            // Extract the content length
+            std::string requestBody;
+            size_t contentLength = 0;
+            while (std::getline(requestStream, header) && header != "\r") {
+                if (header.find("Content-Length:") != std::string::npos) {
+                    contentLength = std::stoul(header.substr(16));
+                }
+            }
+
+            // Read request body
+            if (contentLength > 0) {
+                std::vector<char> body(contentLength);
+                requestStream.read(body.data(), contentLength);
+                requestBody.assign(body.begin(), body.end());
+                std::cout << "Request Body:" << std::endl << requestBody << std::endl;
+            }
+
+            // Parse JSON array from request body
             size_t inputPos = requestBody.find("input=");
             if (inputPos != std::string::npos) {
                 std::string jsonArray = requestBody.substr(inputPos + 6); // Skip "input="
@@ -68,23 +89,4 @@ void handleClient(boost::asio::ip::tcp::socket socket) {
         std::cerr << "Exception: " << e.what() << std::endl;
     }
     socket.close();
-}
-
-int main() {
-    try {
-        boost::asio::io_context ioContext;
-        boost::asio::ip::tcp::acceptor acceptor(ioContext, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), 8080));
-
-        std::cout << "Server listening on port 8080..." << std::endl;
-
-        while (true) {
-            boost::asio::ip::tcp::socket socket(ioContext);
-            acceptor.accept(socket);
-            std::thread(handleClient, std::move(socket)).detach();
-        }
-    } catch (std::exception& e) {
-        std::cerr << "Exception: " << e.what() << std::endl;
-    }
-
-    return 0;
 }
