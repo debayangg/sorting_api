@@ -4,23 +4,11 @@ FROM gcc:latest as builder
 # Set the working directory
 WORKDIR /usr/src/app
 
-# Install dependencies
-RUN apt-get update && apt-get install -y \
-    git \
-    cmake \
-    libboost-all-dev \
-    libssl-dev
-
 # Copy the current directory contents into the container at /usr/src/app
 COPY . .
 
-# Download and install crow and nlohmann_json
-RUN git clone https://github.com/CrowCpp/crow.git
-RUN git clone https://github.com/nlohmann/json.git
-RUN mv json/single_include/nlohmann .
-
 # Compile the C++ code
-RUN g++ -std=c++11 main.cpp -o app -I crow -I nlohmann
+RUN g++ -std=c++11 main.cpp -o app
 
 # Use a minimal image for the final container
 FROM debian:latest
@@ -31,7 +19,7 @@ WORKDIR /root/
 # Copy the compiled binary from the builder stage
 COPY --from=builder /usr/src/app/app .
 
-# Expose port 8080
+# Expose port 8080 (optional if you want to expose a specific port)
 EXPOSE 8080
 
 # Run the binary

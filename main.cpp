@@ -1,24 +1,46 @@
 #include <iostream>
 #include <vector>
 #include <algorithm>
-#include <nlohmann/json.hpp>
-#include <crow.h>
+#include <sstream>
 
-using json = nlohmann::json;
+using namespace std;
+
+// Parse JSON array from string input
+vector<int> parseJsonArray(const string& input) {
+    vector<int> array;
+    stringstream ss(input);
+    char c;
+    int num;
+    while (ss >> c >> num) {
+        array.push_back(num);
+    }
+    return array;
+}
+
+// Convert vector to JSON string
+string toJsonString(const vector<int>& array) {
+    stringstream ss;
+    ss << "[";
+    for (size_t i = 0; i < array.size(); ++i) {
+        if (i > 0) ss << ",";
+        ss << array[i];
+    }
+    ss << "]";
+    return ss.str();
+}
 
 int main() {
-    crow::SimpleApp app;
+    string input;
+    getline(cin, input);
 
-    CROW_ROUTE(app, "/sort").methods("POST"_method)
-    ([](const crow::request& req) {
-        auto body = json::parse(req.body);
-        std::vector<int> array = body.get<std::vector<int>>();
+    // Parse input as JSON array
+    vector<int> array = parseJsonArray(input);
 
-        std::sort(array.begin(), array.end());
+    // Sort the array
+    sort(array.begin(), array.end());
 
-        json response = array;
-        return crow::response(response.dump());
-    });
+    // Output sorted array as JSON string
+    cout << toJsonString(array) << endl;
 
-    app.port(8080).multithreaded().run();
+    return 0;
 }
