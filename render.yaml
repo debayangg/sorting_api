@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: cpp-sort-service
+    env: docker
+    plan: free
+    buildCommand: ""
+    startCommand: "./app"
