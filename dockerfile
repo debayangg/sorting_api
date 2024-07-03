@@ -1,11 +1,13 @@
 FROM ubuntu:20.04
 
+# Set the environment variable to avoid timezone prompt
+ENV DEBIAN_FRONTEND=noninteractive
+
 # Install necessary packages
 RUN apt-get update && apt-get install -y \
     g++ \
     cmake \
     libboost-all-dev \
-    libssl-dev \
     wget \
     unzip \
     && rm -rf /var/lib/apt/lists/*
