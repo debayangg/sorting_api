@@ -27,7 +27,7 @@ WORKDIR /root/
 COPY --from=builder /usr/src/app/app .
 
 # Expose port 8080 (optional if you want to expose a specific port)
-EXPOSE 8080
+EXPOSE 10000
 
 # Run the binary
 CMD ["./app"]
