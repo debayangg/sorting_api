@@ -1,24 +1,29 @@
-# Use an official Ubuntu image as base
-FROM ubuntu:latest
+FROM ubuntu:20.04
 
-# Install necessary dependencies
+# Install necessary packages
 RUN apt-get update && apt-get install -y \
     g++ \
     cmake \
-    make \
+    libboost-all-dev \
+    libssl-dev \
+    wget \
+    unzip \
     && rm -rf /var/lib/apt/lists/*
 
+# Install nlohmann json library
+RUN wget https://github.com/nlohmann/json/releases/download/v3.10.5/json.hpp -P /usr/include/nlohmann/
+
+# Copy source files
+COPY main.cpp /usr/src/myapp/
+
+# Compile the application
+RUN g++ -o /usr/src/myapp/web_service /usr/src/myapp/main.cpp -lboost_system -lpthread
+
 # Set the working directory
-WORKDIR /app
+WORKDIR /usr/src/myapp
 
-# Copy the C++ source code
-COPY main.cpp .
-
-# Compile the C++ code
-RUN g++ -std=c++11 -o web_service main.cpp
-
-# Expose port 8080 (or the port your application listens on)
+# Expose port
 EXPOSE 8080
 
-# Command to run the server
+# Run the application
 CMD ["./web_service"]

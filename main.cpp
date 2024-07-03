@@ -4,12 +4,8 @@
 #include <algorithm>
 #include <sstream>
 #include <stdexcept>
-
-// Simple HTTP Server (for demonstration purposes)
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <unistd.h>
+#include <boost/asio.hpp>
+#include <nlohmann/json.hpp>
 
 // Function to sort JSON array input
 std::string sortJsonArray(const std::vector<int>& array) {
@@ -18,41 +14,36 @@ std::string sortJsonArray(const std::vector<int>& array) {
     std::sort(sortedArray.begin(), sortedArray.end());
 
     // Convert sorted array to JSON string
-    std::stringstream sortedJson;
-    sortedJson << "[";
-    for (size_t i = 0; i < sortedArray.size(); ++i) {
-        if (i > 0) sortedJson << ",";
-        sortedJson << sortedArray[i];
-    }
-    sortedJson << "]";
+    nlohmann::json sortedJson = sortedArray;
 
-    return sortedJson.str();
+    return sortedJson.dump();
 }
 
 // Function to handle incoming connections
-void handleClient(int clientSocket) {
-    char buffer[1024] = {0};
-    std::string response;
+void handleClient(boost::asio::ip::tcp::socket& socket) {
+    boost::asio::streambuf buffer;
+    boost::system::error_code error;
 
     // Read request from client
-    int valread = read(clientSocket, buffer, 1024);
-    if (valread > 0) {
+    boost::asio::read_until(socket, buffer, "\r\n\r\n", error);
+    if (!error) {
+        std::istream requestStream(&buffer);
+        std::string requestBody;
+        std::getline(requestStream, requestBody);
+        std::string line;
+        while (std::getline(requestStream, line) && line != "\r") {
+            requestBody += line;
+        }
+
         // Parse JSON array from request
-        std::string requestBody(buffer);
-        std::cout << requestBody<< std::endl;
         std::vector<int> array;
-        size_t pos = requestBody.find("[");
-        size_t endpos = requestBody.find("]");
+        size_t pos = requestBody.find("input:[");
+        size_t endpos = requestBody.find("]", pos);
         if (pos != std::string::npos && endpos != std::string::npos) {
-            std::string jsonArray = requestBody.substr(pos + 1, endpos - pos - 1);
-            std::istringstream iss(jsonArray);
-            std::string num;
-            while (std::getline(iss, num, ',')) {
-                try {
-                    array.push_back(std::stoi(num));
-                } catch (const std::invalid_argument& ia) {
-                    std::cerr << "Invalid number: " << num << std::endl;
-                }
+            std::string jsonArray = requestBody.substr(pos + 7, endpos - pos - 7);
+            nlohmann::json json = nlohmann::json::parse("[" + jsonArray + "]");
+            for (const auto& num : json) {
+                array.push_back(num.get<int>());
             }
         }
 
@@ -60,58 +51,35 @@ void handleClient(int clientSocket) {
         std::string sortedArray = sortJsonArray(array);
 
         // Prepare response
-        response = "HTTP/1.1 200 OK\r\n";
-        response += "Content-Type: application/json\r\n";
-        response += "Content-Length: " + std::to_string(sortedArray.size()) + "\r\n\r\n";
-        response += sortedArray;
-    } else {
-        response = "HTTP/1.1 400 Bad Request\r\n\r\n";
-    }
+        std::ostringstream response;
+        response << "HTTP/1.1 200 OK\r\n";
+        response << "Content-Type: application/json\r\n";
+        response << "Content-Length: " << sortedArray.size() << "\r\n\r\n";
+        response << sortedArray;
 
-    // Send response to client
-    send(clientSocket, response.c_str(), response.size(), 0);
-    close(clientSocket);
+        // Send response to client
+        boost::asio::write(socket, boost::asio::buffer(response.str()), error);
+    } else {
+        std::string response = "HTTP/1.1 400 Bad Request\r\n\r\n";
+        boost::asio::write(socket, boost::asio::buffer(response), error);
+    }
+    socket.close();
 }
 
 int main() {
-    int serverSocket, clientSocket;
-    struct sockaddr_in serverAddr, clientAddr;
-    socklen_t addrLen = sizeof(struct sockaddr_in);
+    try {
+        boost::asio::io_context ioContext;
+        boost::asio::ip::tcp::acceptor acceptor(ioContext, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), 8080));
 
-    // Create server socket
-    if ((serverSocket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        std::cerr << "Socket creation error" << std::endl;
-        return 1;
-    }
+        std::cout << "Server listening on port 8080..." << std::endl;
 
-    // Prepare server address
-    serverAddr.sin_family = AF_INET;
-    serverAddr.sin_addr.s_addr = INADDR_ANY;
-    serverAddr.sin_port = htons(8080);
-
-    // Bind server address to socket
-    if (bind(serverSocket, (struct sockaddr *)&serverAddr, sizeof(serverAddr)) < 0) {
-        std::cerr << "Bind failed" << std::endl;
-        return 1;
-    }
-
-    // Start listening for incoming connections
-    if (listen(serverSocket, 10) < 0) {
-        std::cerr << "Listen failed" << std::endl;
-        return 1;
-    }
-
-    std::cout << "Server listening on port 8080..." << std::endl;
-
-    // Accept incoming connections and handle requests
-    while (true) {
-        if ((clientSocket = accept(serverSocket, (struct sockaddr *)&clientAddr, &addrLen)) < 0) {
-            std::cerr << "Accept failed" << std::endl;
-            continue;
+        while (true) {
+            boost::asio::ip::tcp::socket socket(ioContext);
+            acceptor.accept(socket);
+            handleClient(socket);
         }
-
-        // Handle client request in a separate thread or process
-        handleClient(clientSocket);
+    } catch (std::exception& e) {
+        std::cerr << "Exception: " << e.what() << std::endl;
     }
 
     return 0;
